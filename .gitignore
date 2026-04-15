@@ -1,0 +1,22 @@
+/target
+Cargo.lock
+**/*.rs.bk
+*.pdb
+.cargo/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build artifacts
+*.o
+*.a
+*.so
+*.dylib
+
+# Debug
+.gdb_history
