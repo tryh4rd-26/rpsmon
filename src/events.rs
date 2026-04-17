@@ -23,7 +23,7 @@ impl EventHandler {
         let tx_key = tx.clone();
         thread::spawn(move || {
             loop {
-                if let Ok(true) = event::poll(Duration::from_millis(50)) {
+                if let Ok(true) = event::poll(Duration::from_millis(10)) {
                     if let Ok(CrosstermEvent::Key(key)) = event::read() {
                         let _ = tx_key.send(Event::Key(key));
                     } else if let Ok(CrosstermEvent::Resize(_, _)) = event::read() {
@@ -33,11 +33,11 @@ impl EventHandler {
             }
         });
 
-        // UI tick thread (30 FPS for better performance)
+        // UI tick thread (20 FPS for efficiency)
         let tx_ui = tx.clone();
         thread::spawn(move || {
             loop {
-                thread::sleep(Duration::from_millis(33));
+                thread::sleep(Duration::from_millis(50));
                 let _ = tx_ui.send(Event::UiTick);
             }
         });
