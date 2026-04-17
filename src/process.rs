@@ -55,7 +55,6 @@ impl ProcessManager {
         self.users.refresh_list();
         self.networks.refresh();
         self.components.refresh_list();
-        self.update_ips();
     }
 
     fn update_ips(&mut self) {
