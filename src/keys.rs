@@ -155,6 +155,11 @@ impl KeyHandler {
                         app.toggle_pause_selected();
                     }
 
+                    // ── Lock ──
+                    KeyCode::Char('l') => {
+                        app.toggle_lock();
+                    }
+
                     _ => {}
                 }
             }

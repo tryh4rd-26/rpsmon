@@ -345,6 +345,10 @@ impl App {
     pub fn toggle_tree_mode(&mut self) {
         self.tree_mode = !self.tree_mode;
     }
+
+    pub fn toggle_lock(&mut self) {
+        self.is_locked = !self.is_locked;
+    }
 }
 
 pub async fn run<B: Backend + std::io::Write>(terminal: &mut Terminal<B>) -> Result<()> {
