@@ -15,64 +15,68 @@ impl KeyHandler {
         }
 
         match app.mode {
-            AppMode::Filter => {
-                match key_event.code {
-                    KeyCode::Esc => {
-                        app.mode = AppMode::Normal;
-                        app.search_query.clear();
-                    }
-                    KeyCode::Backspace => {
-                        app.pop_search_char();
-                    }
-                    KeyCode::Char(c) => {
-                        app.add_search_char(c);
-                    }
-                    KeyCode::Enter => {
-                        app.mode = AppMode::Normal;
-                    }
-                    _ => {}
+            AppMode::Filter => match key_event.code {
+                KeyCode::Esc => {
+                    app.mode = AppMode::Normal;
+                    app.search_query.clear();
                 }
-            }
-            AppMode::SignalMenu => {
-                match key_event.code {
-                    KeyCode::Esc | KeyCode::Char('q') => {
-                        app.mode = AppMode::Detail;
-                        app.signal_input.clear();
+                KeyCode::Backspace => {
+                    app.pop_search_char();
+                }
+                KeyCode::Char(c) => {
+                    app.add_search_char(c);
+                }
+                KeyCode::Enter => {
+                    app.mode = AppMode::Normal;
+                }
+                _ => {}
+            },
+            AppMode::SignalMenu => match key_event.code {
+                KeyCode::Esc | KeyCode::Char('q') => {
+                    app.mode = AppMode::Detail;
+                    app.signal_input.clear();
+                }
+                KeyCode::Up => {
+                    if app.signal_index >= 4 {
+                        app.signal_index -= 4;
                     }
-                    KeyCode::Up => {
-                        if app.signal_index >= 4 { app.signal_index -= 4; }
+                }
+                KeyCode::Down => {
+                    if app.signal_index + 4 < 31 {
+                        app.signal_index += 4;
                     }
-                    KeyCode::Down => {
-                        if app.signal_index + 4 < 31 { app.signal_index += 4; }
+                }
+                KeyCode::Left => {
+                    if app.signal_index > 0 {
+                        app.signal_index -= 1;
                     }
-                    KeyCode::Left => {
-                        if app.signal_index > 0 { app.signal_index -= 1; }
+                }
+                KeyCode::Right => {
+                    if app.signal_index < 30 {
+                        app.signal_index += 1;
                     }
-                    KeyCode::Right => {
-                        if app.signal_index < 30 { app.signal_index += 1; }
-                    }
-                    KeyCode::Backspace => {
-                        app.signal_input.pop();
-                    }
-                    KeyCode::Char(c) if c.is_ascii_digit() => {
-                        if app.signal_input.len() < 2 {
-                            app.signal_input.push(c);
-                            if let Ok(val) = app.signal_input.parse::<usize>() {
-                                if val >= 1 && val <= 31 {
-                                    app.signal_index = val - 1;
-                                }
+                }
+                KeyCode::Backspace => {
+                    app.signal_input.pop();
+                }
+                KeyCode::Char(c) if c.is_ascii_digit() => {
+                    if app.signal_input.len() < 2 {
+                        app.signal_input.push(c);
+                        if let Ok(val) = app.signal_input.parse::<usize>() {
+                            if (1..=31).contains(&val) {
+                                app.signal_index = val - 1;
                             }
                         }
                     }
-                    KeyCode::Enter => {
-                        let sig = (app.signal_index + 1) as i32;
-                        let _ = app.send_custom_signal(sig);
-                        app.mode = AppMode::Detail;
-                        app.signal_input.clear();
-                    }
-                    _ => {}
                 }
-            }
+                KeyCode::Enter => {
+                    let sig = (app.signal_index + 1) as i32;
+                    let _ = app.send_custom_signal(sig);
+                    app.mode = AppMode::Detail;
+                    app.signal_input.clear();
+                }
+                _ => {}
+            },
             _ => {
                 match key_event.code {
                     // ── Quit ──
@@ -102,6 +106,15 @@ impl KeyHandler {
                     }
                     KeyCode::Char('k') | KeyCode::Up => {
                         app.select_previous();
+                    }
+                    KeyCode::Left if app.tree_mode => {
+                        app.collapse_tree_selected();
+                    }
+                    KeyCode::Right if app.tree_mode => {
+                        app.expand_tree_selected();
+                    }
+                    KeyCode::Char(' ') if app.tree_mode => {
+                        app.toggle_tree_selected_expanded();
                     }
                     KeyCode::Char('g') => {
                         app.select_top();
@@ -158,6 +171,12 @@ impl KeyHandler {
                     // ── Lock ──
                     KeyCode::Char('l') => {
                         app.toggle_lock();
+                    }
+                    KeyCode::Char('w') => {
+                        app.toggle_watch_selected();
+                    }
+                    KeyCode::Char('a') => {
+                        app.toggle_alerts();
                     }
 
                     _ => {}

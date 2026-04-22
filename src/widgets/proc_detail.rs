@@ -7,7 +7,6 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Paragraph, Tabs, Wrap},
     Frame,
 };
-use std::process::Command;
 
 const TAB_NAMES: [&str; 6] = ["Identity", "Resources", "I/O", "Conn", "Relations", "Env"];
 
@@ -89,7 +88,7 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
         0 => draw_identity_tab(f, app, proc, inner[1]),
         1 => draw_resources_tab(f, app, proc, inner[1]),
         2 => draw_io_tab(f, proc, inner[1]),
-        3 => draw_connections_tab(f, proc, inner[1]),
+        3 => draw_connections_tab(f, app, proc, inner[1]),
         4 => draw_relations_tab(f, app, proc, &processes, inner[1]),
         5 => draw_env_tab(f, proc, inner[1]),
         _ => {}
@@ -341,17 +340,11 @@ fn draw_io_tab(f: &mut Frame, proc: &sysinfo::Process, area: Rect) {
     f.render_widget(widget, area);
 }
 
-fn draw_connections_tab(f: &mut Frame, proc: &sysinfo::Process, area: Rect) {
+fn draw_connections_tab(f: &mut Frame, app: &App, proc: &sysinfo::Process, area: Rect) {
     let pid = proc.pid().as_u32();
     let mut lines = vec![section_header("Active Network Connections")];
 
-    if let Ok(output) = Command::new("lsof")
-        .args(["-nP", "-i", "-p", &pid.to_string()])
-        .output()
-    {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let output_lines: Vec<_> = stdout.lines().skip(1).collect();
-
+    if let Some(output_lines) = app.process_manager.get_process_connections(pid) {
         if output_lines.is_empty() {
             lines.push(Line::from(Span::styled(
                 "  No active IP connections found.",
@@ -386,7 +379,7 @@ fn draw_connections_tab(f: &mut Frame, proc: &sysinfo::Process, area: Rect) {
         }
     } else {
         lines.push(Line::from(Span::styled(
-            "  lsof not available or permission denied.",
+            "  Connection stats are loading...",
             Style::default().fg(theme::TEXT_DIM),
         )));
     }

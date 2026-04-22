@@ -1,6 +1,6 @@
 use crate::app::App;
-use crate::theme;
 use crate::sort::SortBy;
+use crate::theme;
 use ratatui::{
     layout::Rect,
     style::{Modifier, Style},
@@ -31,7 +31,7 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
         .border_style(Style::default().fg(theme::BORDER_CPU));
 
     let pm = &app.process_manager;
-    
+
     // Top CPU process
     let cpu_procs = pm.get_filtered_and_sorted_processes("", SortBy::Cpu);
     let top_cpu = if !cpu_procs.is_empty() {
@@ -42,7 +42,7 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
     } else {
         "none".to_string()
     };
-    
+
     // System wide metrics
     let total_threads = pm.get_total_threads();
     let open_fds = pm.get_open_fds();
@@ -53,38 +53,111 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
     let avg_task_mem_mb = pm.get_avg_task_memory() as f64 / 1_048_576.0;
     let user_cpu_pct = pm.get_user_cpu_pct();
     let sys_cpu_pct = 100.0 - user_cpu_pct;
+    let watchlist_preview = app.watchlist_snapshot(2);
+    let watchlist_text = if watchlist_preview.is_empty() {
+        "none".to_string()
+    } else {
+        watchlist_preview.join(" | ")
+    };
+    let alert_rules = app.alert_rules();
+    let alert_status = if alert_rules.enabled {
+        format!(
+            "ON cpu>{:.0}% mem>{:.0}% {}s",
+            alert_rules.cpu_pct, alert_rules.mem_pct, alert_rules.hold_secs
+        )
+    } else {
+        "OFF".to_string()
+    };
+    let latest_alert = app
+        .latest_alert()
+        .map(|alert| {
+            format!(
+                "{} {}:{} {} {:.1}>{:.1}",
+                alert.epoch_secs,
+                alert.pid,
+                alert.process_name,
+                alert.metric,
+                alert.value,
+                alert.threshold
+            )
+        })
+        .unwrap_or_else(|| "none".to_string());
 
     let lines = vec![
+        Line::from(vec![
+            Span::styled("Alerts: ", Style::default().fg(theme::TEXT_LABEL)),
+            Span::styled(alert_status, Style::default().fg(theme::STATUS_ZOMBIE)),
+            Span::styled(" Active: ", Style::default().fg(theme::TEXT_LABEL)),
+            Span::styled(
+                app.alerts_active_count().to_string(),
+                Style::default().fg(theme::TEXT_VALUE),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Last: ", Style::default().fg(theme::TEXT_LABEL)),
+            Span::styled(latest_alert, Style::default().fg(theme::TEXT_DIM)),
+        ]),
+        Line::from(vec![
+            Span::styled("Watch: ", Style::default().fg(theme::TEXT_LABEL)),
+            Span::styled(watchlist_text, Style::default().fg(theme::TEXT_ACCENT)),
+        ]),
         Line::from(vec![
             Span::styled("CPU Top: ", Style::default().fg(theme::TEXT_LABEL)),
             Span::styled(top_cpu, Style::default().fg(theme::BORDER_CPU)),
         ]),
         Line::from(vec![
             Span::styled("Threads: ", Style::default().fg(theme::TEXT_LABEL)),
-            Span::styled(format!("{} ", total_threads), Style::default().fg(theme::TEXT_VALUE)),
+            Span::styled(
+                format!("{} ", total_threads),
+                Style::default().fg(theme::TEXT_VALUE),
+            ),
             Span::styled("FDs: ", Style::default().fg(theme::TEXT_LABEL)),
-            Span::styled(format!("{}", open_fds), Style::default().fg(theme::TEXT_VALUE)),
+            Span::styled(
+                format!("{}", open_fds),
+                Style::default().fg(theme::TEXT_VALUE),
+            ),
         ]),
         Line::from(vec![
             Span::styled("CtxSw: ", Style::default().fg(theme::TEXT_LABEL)),
-            Span::styled(format!("{}/s ", ctx_switches), Style::default().fg(theme::TEXT_VALUE)),
+            Span::styled(
+                format!("{}/s ", ctx_switches),
+                Style::default().fg(theme::TEXT_VALUE),
+            ),
             Span::styled("IRQ: ", Style::default().fg(theme::TEXT_LABEL)),
-            Span::styled(format!("{}/s", interrupts), Style::default().fg(theme::TEXT_VALUE)),
+            Span::styled(
+                format!("{}/s", interrupts),
+                Style::default().fg(theme::TEXT_VALUE),
+            ),
         ]),
         Line::from(vec![
             Span::styled("Zombie: ", Style::default().fg(theme::TEXT_LABEL)),
-            Span::styled(format!("{} ", zombie_count), Style::default().fg(theme::TEXT_DIM)),
+            Span::styled(
+                format!("{} ", zombie_count),
+                Style::default().fg(theme::TEXT_DIM),
+            ),
             Span::styled("Daemon: ", Style::default().fg(theme::TEXT_LABEL)),
-            Span::styled(format!("{}", daemon_count), Style::default().fg(theme::TEXT_DIM)),
+            Span::styled(
+                format!("{}", daemon_count),
+                Style::default().fg(theme::TEXT_DIM),
+            ),
         ]),
         Line::from(vec![
             Span::styled("AvgMemTask: ", Style::default().fg(theme::TEXT_LABEL)),
-            Span::styled(format!("{:.1}M", avg_task_mem_mb), Style::default().fg(theme::TEXT_VALUE)),
+            Span::styled(
+                format!("{:.1}M", avg_task_mem_mb),
+                Style::default().fg(theme::TEXT_VALUE),
+            ),
         ]),
         Line::from(vec![
             Span::styled("CPU: ", Style::default().fg(theme::TEXT_LABEL)),
-            Span::styled(format!("User {:.0}% ", user_cpu_pct), Style::default().fg(theme::BORDER_CPU)),
-            Span::styled(format!("Sys {:.0}%", sys_cpu_pct), Style::default().fg(theme::COLOR_ORANGE)),
+            Span::styled(
+                format!("User {:.0}% ", user_cpu_pct),
+                Style::default().fg(theme::BORDER_CPU),
+            ),
+            Span::styled(
+                format!("Sys {:.0}%", sys_cpu_pct),
+                Style::default().fg(theme::COLOR_ORANGE),
+            ),
         ]),
         // Separator
         Line::from(""),
@@ -95,23 +168,31 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
     // Add banner with colors and centering
     let banner_width = 40; // Banner is approximately 40 chars wide
     let available_width = (area.width as i32 - 4).max(0) as u16; // Account for border/margin
-    let center_padding = if available_width > banner_width { (available_width - banner_width) / 2 } else { 0 };
-    
-    let mut banner_lines: Vec<Line> = RPS_BANNER.lines()
+    let center_padding = if available_width > banner_width {
+        (available_width - banner_width) / 2
+    } else {
+        0
+    };
+
+    let banner_lines: Vec<Line> = RPS_BANNER
+        .lines()
         .map(|banner_line| {
             let mut line_spans = vec![];
-            
+
             // Add centering padding
             if center_padding > 0 {
-                line_spans.push(Span::styled(" ".repeat(center_padding as usize), Style::default().fg(theme::TEXT_DIM)));
+                line_spans.push(Span::styled(
+                    " ".repeat(center_padding as usize),
+                    Style::default().fg(theme::TEXT_DIM),
+                ));
             }
-            
+
             // Add banner characters with colors
             for ch in banner_line.chars() {
                 let color = match ch {
-                    '█' => theme::BORDER_CPU,      // Green solid blocks
-                    '░' => theme::COLOR_BLUE,      // Blue outline blocks
-                    ' ' => theme::TEXT_DIM,        // Spaces
+                    '█' => theme::BORDER_CPU, // Green solid blocks
+                    '░' => theme::COLOR_BLUE, // Blue outline blocks
+                    ' ' => theme::TEXT_DIM,   // Spaces
                     _ => theme::TEXT_LABEL,
                 };
                 line_spans.push(Span::styled(ch.to_string(), Style::default().fg(color)));

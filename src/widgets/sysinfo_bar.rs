@@ -38,17 +38,28 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
 
     let col1 = Paragraph::new(vec![
         Line::from(vec![
-            Span::styled("rps", Style::default().fg(theme::HEADER_TITLE).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "rps",
+                Style::default()
+                    .fg(theme::HEADER_TITLE)
+                    .add_modifier(Modifier::BOLD),
+            ),
             Span::styled(" │ ", Style::default().fg(theme::TEXT_DIM)),
             Span::styled(&hostname, Style::default().fg(theme::TEXT_ACCENT)),
         ]),
         Line::from(vec![
             Span::styled("CPU: ", Style::default().fg(theme::TEXT_LABEL)),
-            Span::styled(format!("{} ({} cores)", cpu_name, cpu_cores), Style::default().fg(theme::TEXT_VALUE)),
+            Span::styled(
+                format!("{} ({} cores)", cpu_name, cpu_cores),
+                Style::default().fg(theme::TEXT_VALUE),
+            ),
         ]),
         Line::from(vec![
             Span::styled("RAM: ", Style::default().fg(theme::TEXT_LABEL)),
-            Span::styled(format!("{:.1} GB", total_ram_gb), Style::default().fg(theme::TEXT_VALUE)),
+            Span::styled(
+                format!("{:.1} GB", total_ram_gb),
+                Style::default().fg(theme::TEXT_VALUE),
+            ),
         ]),
     ]);
     f.render_widget(col1, inner[0]);
@@ -69,7 +80,10 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
     let col2 = Paragraph::new(vec![
         Line::from(vec![
             Span::styled("OS: ", Style::default().fg(theme::TEXT_LABEL)),
-            Span::styled(format!("{} ({})", os, kernel), Style::default().fg(theme::TEXT_VALUE)),
+            Span::styled(
+                format!("{} ({})", os, kernel),
+                Style::default().fg(theme::TEXT_VALUE),
+            ),
         ]),
         Line::from(vec![
             Span::styled("Up: ", Style::default().fg(theme::TEXT_LABEL)),
@@ -93,7 +107,10 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
     let mut running = 0u32;
     let mut sleeping = 0u32;
     let mut zombie = 0u32;
-    let _total_threads: usize = procs.iter().map(|p| p.tasks().map(|t| t.len()).unwrap_or(1)).sum();
+    let _total_threads: usize = procs
+        .iter()
+        .map(|p| p.tasks().map(|t| t.len()).unwrap_or(1))
+        .sum();
 
     for p in &procs {
         match p.status() {
@@ -110,15 +127,27 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
             Span::styled(" ", Style::default().fg(theme::TEXT_DIM)),
             Span::styled(format!("{:.2}", load.five), Style::default().fg(load5_col)),
             Span::styled(" ", Style::default().fg(theme::TEXT_DIM)),
-            Span::styled(format!("{:.2}", load.fifteen), Style::default().fg(load15_col)),
+            Span::styled(
+                format!("{:.2}", load.fifteen),
+                Style::default().fg(load15_col),
+            ),
         ]),
         Line::from(vec![
             Span::styled("Procs: ", Style::default().fg(theme::TEXT_LABEL)),
             Span::styled(total.to_string(), Style::default().fg(theme::TEXT_BRIGHT)),
             Span::styled(" (", Style::default().fg(theme::TEXT_DIM)),
-            Span::styled(format!("{}R ", running), Style::default().fg(theme::STATUS_RUN)),
-            Span::styled(format!("{}S ", sleeping), Style::default().fg(theme::STATUS_SLEEP)),
-            Span::styled(format!("{}Z", zombie), Style::default().fg(theme::STATUS_ZOMBIE)),
+            Span::styled(
+                format!("{}R ", running),
+                Style::default().fg(theme::STATUS_RUN),
+            ),
+            Span::styled(
+                format!("{}S ", sleeping),
+                Style::default().fg(theme::STATUS_SLEEP),
+            ),
+            Span::styled(
+                format!("{}Z", zombie),
+                Style::default().fg(theme::STATUS_ZOMBIE),
+            ),
             Span::styled(")", Style::default().fg(theme::TEXT_DIM)),
         ]),
     ]);
@@ -126,37 +155,70 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
 
     // Column 4: Hostname detail
     let cpu_brand = app.process_manager.get_cpu_brand();
-    
-    let col4 = Paragraph::new(vec![
-        Line::from(vec![
-            Span::styled("Brand: ", Style::default().fg(theme::TEXT_LABEL)),
-            Span::styled(cpu_brand, Style::default().fg(theme::TEXT_VALUE)),
-        ]),
-    ]);
+
+    let col4 = Paragraph::new(vec![Line::from(vec![
+        Span::styled("Brand: ", Style::default().fg(theme::TEXT_LABEL)),
+        Span::styled(cpu_brand, Style::default().fg(theme::TEXT_VALUE)),
+    ])]);
     f.render_widget(col4, inner[3]);
 }
 
 use ratatui::style::Color;
 
 fn chrono_time() -> String {
-    // Get system time without external chrono dependency
-    let now = std::time::SystemTime::now();
-    let since_epoch = now.duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
-    let secs = since_epoch.as_secs();
-    // Adjust for IST (+5:30) since the user is in that timezone
-    let ist_secs = secs + 5 * 3600 + 30 * 60;
-    let h = (ist_secs % 86400) / 3600;
-    let m = (ist_secs % 3600) / 60;
-    let s = ist_secs % 60;
-    format!("{:02}:{:02}:{:02}", h, m, s)
-}
+    let mut now: libc::time_t = 0;
+    let mut tm = libc::tm {
+        tm_sec: 0,
+        tm_min: 0,
+        tm_hour: 0,
+        tm_mday: 0,
+        tm_mon: 0,
+        tm_year: 0,
+        tm_wday: 0,
+        tm_yday: 0,
+        tm_isdst: 0,
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        tm_gmtoff: 0,
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        tm_zone: std::ptr::null_mut(),
+        #[cfg(any(
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "freebsd",
+            target_os = "openbsd",
+            target_os = "netbsd",
+            target_os = "dragonfly"
+        ))]
+        tm_gmtoff: 0,
+        #[cfg(any(
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "freebsd",
+            target_os = "openbsd",
+            target_os = "netbsd",
+            target_os = "dragonfly"
+        ))]
+        tm_zone: std::ptr::null_mut(),
+    };
+    let mut buf = [0i8; 16];
+    let fmt = b"%H:%M:%S\0";
 
-fn boot_time_str(uptime_secs: u64) -> String {
-    let now = std::time::SystemTime::now();
-    let since_epoch = now.duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
-    let boot_epoch = since_epoch.as_secs().saturating_sub(uptime_secs);
-    let ist = boot_epoch + 5 * 3600 + 30 * 60;
-    let h = (ist % 86400) / 3600;
-    let m = (ist % 3600) / 60;
-    format!("{:02}:{:02}", h, m)
+    // SAFETY: We pass valid pointers to libc time conversion functions and buffer bounds to strftime.
+    unsafe {
+        libc::time(&mut now);
+        if libc::localtime_r(&now, &mut tm).is_null() {
+            return "--:--:--".to_string();
+        }
+        let written = libc::strftime(buf.as_mut_ptr(), buf.len(), fmt.as_ptr() as *const i8, &tm);
+        if written == 0 {
+            return "--:--:--".to_string();
+        }
+    }
+
+    let bytes: Vec<u8> = buf
+        .iter()
+        .take_while(|&&c| c != 0)
+        .map(|&c| c as u8)
+        .collect();
+    String::from_utf8(bytes).unwrap_or_else(|_| "--:--:--".to_string())
 }
