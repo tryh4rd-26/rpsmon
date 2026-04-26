@@ -129,6 +129,7 @@ impl ProcessManager {
                         let ip = line
                             .split_whitespace()
                             .nth(1)
+                            .unwrap_or("")
                             .split('/')
                             .next()
                             .unwrap_or("")
